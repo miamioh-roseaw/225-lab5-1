@@ -17,7 +17,14 @@ pipeline {
                           userRemoteConfigs: [[url: "${GITHUB_URL}"]]])
             }
         }
-
+        
+        stage('Lint HTML') {
+            steps {
+                sh 'npm install htmlhint --save-dev'
+                sh 'npx htmlhint *.html'
+            }
+        }
+        
         stage('Build Docker Image') {
             steps {
                 script {
@@ -48,7 +55,20 @@ pipeline {
                 }
             }
         }
-
+        
+        stage ("Run Security Checks") {
+            steps {
+                //                                                                 ###change the IP address in this section to your cluster IP address!!!!####
+                sh 'docker pull public.ecr.aws/portswigger/dastardly:latest'
+                sh '''
+                    docker run --user $(id -u) -v ${WORKSPACE}:${WORKSPACE}:rw \
+                    -e BURP_START_URL=http://10.48.10.170 \
+                    -e BURP_REPORT_FILE_PATH=${WORKSPACE}/dastardly-report.xml \
+                    public.ecr.aws/portswigger/dastardly:latest
+                '''
+            }
+        }
+        
         stage('Generate Test Data') {
             steps {
                 script {
